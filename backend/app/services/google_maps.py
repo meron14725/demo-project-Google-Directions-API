@@ -3,6 +3,7 @@ Google Maps API統合サービス
 """
 import httpx
 from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timezone
 from app.config import settings
 import logging
 
@@ -51,7 +52,9 @@ class GoogleMapsService:
         origin: str,
         destination: str,
         travel_mode: str = "DRIVE",
-        compute_alternative_routes: bool = False
+        compute_alternative_routes: bool = False,
+        departure_time: Optional[str] = None,
+        transit_preferences: Optional[Dict] = None
     ) -> Dict:
         """
         Routes APIを使用して経路を計算
@@ -76,14 +79,25 @@ class GoogleMapsService:
             logger.error(f"Geocoding error: {e}")
             raise
 
+        # Field Maskの構築（TRANSITモードでは追加フィールドを含める）
+        field_mask_parts = [
+            "routes.distanceMeters",
+            "routes.duration",
+            "routes.polyline.encodedPolyline",
+            "routes.legs",
+        ]
+        if travel_mode == "TRANSIT":
+            field_mask_parts.extend([
+                "routes.legs.steps.transitDetails",
+                "routes.legs.steps.travelMode",
+                "routes.travelAdvisory.transitFare",
+            ])
+
         # Routes APIリクエストヘッダー
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": (
-                "routes.distanceMeters,routes.duration,routes.polyline.encodedPolyline,"
-                "routes.legs"
-            )
+            "X-Goog-FieldMask": ",".join(field_mask_parts)
         }
 
         # リクエストボディ
@@ -108,9 +122,20 @@ class GoogleMapsService:
             "computeAlternativeRoutes": compute_alternative_routes
         }
 
-        # TRANSITモード以外はリアルタイムトラフィック考慮を有効化
-        # TRANSITモードではroutingPreferenceを設定できないため除外
-        if travel_mode != "TRANSIT":
+        # TRANSITモード固有の設定
+        if travel_mode == "TRANSIT":
+            # departureTime: 未指定時は現在時刻をデフォルトで設定
+            if departure_time:
+                payload["departureTime"] = departure_time
+            else:
+                payload["departureTime"] = datetime.now(timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                )
+            # transitPreferences の設定
+            if transit_preferences:
+                payload["transitPreferences"] = transit_preferences
+        else:
+            # TRANSITモード以外はリアルタイムトラフィック考慮を有効化
             payload["routingPreference"] = "TRAFFIC_AWARE"
 
         async with httpx.AsyncClient(timeout=30.0) as client:

@@ -6,6 +6,42 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
+class TransitStop(BaseModel):
+    """乗降駅情報"""
+
+    name: str = Field(..., description="駅名")
+    location: Optional[Dict[str, float]] = Field(None, description="座標")
+
+
+class TransitDetails(BaseModel):
+    """TRANSIT ステップの詳細情報"""
+
+    departure_stop: Optional[TransitStop] = Field(None, description="乗車駅")
+    arrival_stop: Optional[TransitStop] = Field(None, description="降車駅")
+    departure_time: Optional[str] = Field(None, description="出発時刻")
+    arrival_time: Optional[str] = Field(None, description="到着時刻")
+    line_name: Optional[str] = Field(None, description="路線名")
+    short_name: Optional[str] = Field(None, description="路線短縮名")
+    vehicle_type: Optional[str] = Field(None, description="車両タイプ (BUS, SUBWAY, TRAIN 等)")
+    num_stops: Optional[int] = Field(None, description="停車駅数")
+
+
+class TransitStep(BaseModel):
+    """TRANSIT ルートの各ステップ"""
+
+    travel_mode: str = Field(..., description="移動手段 (WALK, TRANSIT)")
+    duration_text: Optional[str] = Field(None, description="所要時間")
+    distance_text: Optional[str] = Field(None, description="距離")
+    transit_details: Optional[TransitDetails] = Field(None, description="乗り換え詳細（TRANSIT時のみ）")
+
+
+class FareInfo(BaseModel):
+    """運賃情報"""
+
+    currency_code: str = Field(..., description="通貨コード (JPY等)")
+    units: str = Field(..., description="金額")
+
+
 class RouteInfo(BaseModel):
     """ルート情報"""
 
@@ -16,6 +52,8 @@ class RouteInfo(BaseModel):
     polyline: Optional[str] = Field(None, description="経路のポリライン（エンコード済み）")
     start_location: Dict[str, float] = Field(..., description="出発地の座標")
     end_location: Dict[str, float] = Field(..., description="目的地の座標")
+    transit_steps: Optional[List[TransitStep]] = Field(None, description="TRANSIT モードの各ステップ")
+    fare: Optional[FareInfo] = Field(None, description="運賃情報")
 
 
 class RouteResponse(BaseModel):

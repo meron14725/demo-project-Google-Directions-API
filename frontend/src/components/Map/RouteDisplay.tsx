@@ -2,7 +2,7 @@
  * ルート描画コンポーネント（マーカー + ポリライン）
  */
 import { AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { RouteInfo } from '../../types';
 
 interface RouteDisplayProps {
@@ -12,26 +12,21 @@ interface RouteDisplayProps {
 
 export function RouteDisplay({ route, alternativeRoutes = [] }: RouteDisplayProps) {
   const map = useMap();
+  const polylinesRef = useRef<google.maps.Polyline[]>([]);
 
   // ポリラインをデコードして描画
   useEffect(() => {
-    console.log('RouteDisplay useEffect - map:', map);
-    console.log('RouteDisplay useEffect - route.polyline:', route.polyline);
-
     if (!map || !route.polyline) {
-      console.log('RouteDisplay useEffect - early return (no map or polyline)');
       return;
     }
 
     // 既存のポリラインをクリア
-    const existingPolylines = (map as any).__polylines || [];
-    existingPolylines.forEach((polyline: google.maps.Polyline) => polyline.setMap(null));
+    polylinesRef.current.forEach((polyline) => polyline.setMap(null));
 
     const newPolylines: google.maps.Polyline[] = [];
 
     // メインルートのポリライン
     const mainPath = decodePolyline(route.polyline);
-    console.log('RouteDisplay - decoded path points:', mainPath.length);
 
     const mainPolyline = new google.maps.Polyline({
       path: mainPath,
@@ -41,7 +36,6 @@ export function RouteDisplay({ route, alternativeRoutes = [] }: RouteDisplayProp
       strokeWeight: 4,
       map: map,
     });
-    console.log('RouteDisplay - polyline created:', mainPolyline);
     newPolylines.push(mainPolyline);
 
     // 代替ルートのポリライン
@@ -61,13 +55,13 @@ export function RouteDisplay({ route, alternativeRoutes = [] }: RouteDisplayProp
     });
 
     // ポリラインを保存（クリーンアップ用）
-    (map as any).__polylines = newPolylines;
+    polylinesRef.current = newPolylines;
 
     // ルート全体が見えるようにビューを調整
     const bounds = new google.maps.LatLngBounds();
     bounds.extend(route.start_location);
     bounds.extend(route.end_location);
-    map.fitBounds(bounds, { padding: 50 });
+    map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
 
     return () => {
       newPolylines.forEach((polyline) => polyline.setMap(null));

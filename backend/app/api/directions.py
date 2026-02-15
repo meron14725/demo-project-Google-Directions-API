@@ -1,10 +1,16 @@
 """
 経路検索APIエンドポイント
 """
+
 from fastapi import APIRouter, HTTPException
 from app.models.request import RouteRequest
 from app.models.response import (
-    RouteResponse, RouteInfo, TransitStep, TransitDetails, TransitStop, FareInfo
+    RouteResponse,
+    RouteInfo,
+    TransitStep,
+    TransitDetails,
+    TransitStop,
+    FareInfo,
 )
 from app.services.google_maps import GoogleMapsService
 from datetime import datetime, timedelta
@@ -55,7 +61,7 @@ async def calculate_route(request: RouteRequest):
             travel_mode=request.travel_mode,
             compute_alternative_routes=request.compute_alternative_routes,
             departure_time=departure_time_str,
-            transit_preferences=transit_prefs
+            transit_preferences=transit_prefs,
         )
 
         # ルートが見つからない場合
@@ -64,7 +70,7 @@ async def calculate_route(request: RouteRequest):
                 success=False,
                 route=None,
                 travel_mode=request.travel_mode,
-                error_message="指定された条件でルートが見つかりませんでした"
+                error_message="指定された条件でルートが見つかりませんでした",
             )
 
         # メインルートの情報を抽出
@@ -75,11 +81,11 @@ async def calculate_route(request: RouteRequest):
         # 座標情報を抽出（latitude/longitude → lat/lng に変換）
         start_location = {
             "lat": main_route["legs"][0]["startLocation"]["latLng"]["latitude"],
-            "lng": main_route["legs"][0]["startLocation"]["latLng"]["longitude"]
+            "lng": main_route["legs"][0]["startLocation"]["latLng"]["longitude"],
         }
         end_location = {
             "lat": main_route["legs"][0]["endLocation"]["latLng"]["latitude"],
-            "lng": main_route["legs"][0]["endLocation"]["latLng"]["longitude"]
+            "lng": main_route["legs"][0]["endLocation"]["latLng"]["longitude"],
         }
 
         # ポリライン情報を取得
@@ -101,7 +107,7 @@ async def calculate_route(request: RouteRequest):
             start_location=start_location,
             end_location=end_location,
             transit_steps=transit_steps,
-            fare=fare
+            fare=fare,
         )
 
         # 代替ルートの情報を抽出
@@ -112,23 +118,25 @@ async def calculate_route(request: RouteRequest):
                 alt_distance = alt_route["distanceMeters"]
                 alt_start = {
                     "lat": alt_route["legs"][0]["startLocation"]["latLng"]["latitude"],
-                    "lng": alt_route["legs"][0]["startLocation"]["latLng"]["longitude"]
+                    "lng": alt_route["legs"][0]["startLocation"]["latLng"]["longitude"],
                 }
                 alt_end = {
                     "lat": alt_route["legs"][0]["endLocation"]["latLng"]["latitude"],
-                    "lng": alt_route["legs"][0]["endLocation"]["latLng"]["longitude"]
+                    "lng": alt_route["legs"][0]["endLocation"]["latLng"]["longitude"],
                 }
                 alt_polyline = alt_route.get("polyline", {}).get("encodedPolyline")
 
-                alternative_routes.append(RouteInfo(
-                    duration_seconds=alt_duration,
-                    duration_text=maps_service.format_duration(alt_duration),
-                    distance_meters=alt_distance,
-                    distance_text=maps_service.format_distance(alt_distance),
-                    polyline=alt_polyline,
-                    start_location=alt_start,
-                    end_location=alt_end
-                ))
+                alternative_routes.append(
+                    RouteInfo(
+                        duration_seconds=alt_duration,
+                        duration_text=maps_service.format_duration(alt_duration),
+                        distance_meters=alt_distance,
+                        distance_text=maps_service.format_distance(alt_distance),
+                        polyline=alt_polyline,
+                        start_location=alt_start,
+                        end_location=alt_end,
+                    )
+                )
 
         # 推奨出発時刻の計算
         recommended_departure_time = None
@@ -143,7 +151,7 @@ async def calculate_route(request: RouteRequest):
             alternative_routes=alternative_routes,
             recommended_departure_time=recommended_departure_time,
             travel_mode=request.travel_mode,
-            error_message=None
+            error_message=None,
         )
 
     except ValueError as e:
@@ -156,17 +164,23 @@ async def calculate_route(request: RouteRequest):
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(
             status_code=500,
-            detail="経路計算中にエラーが発生しました。しばらくしてから再度お試しください。"
+            detail="経路計算中にエラーが発生しました。しばらくしてから再度お試しください。",
         )
 
 
-def _extract_transit_steps(route: dict, maps_service: GoogleMapsService) -> list[TransitStep]:
+def _extract_transit_steps(
+    route: dict, maps_service: GoogleMapsService
+) -> list[TransitStep]:
     """ルートからTRANSITステップ情報を抽出"""
     steps = []
     for leg in route.get("legs", []):
         for step in leg.get("steps", []):
             step_mode = step.get("travelMode", "WALK")
-            duration_sec = int(step.get("staticDuration", "0s").rstrip("s")) if step.get("staticDuration") else 0
+            duration_sec = (
+                int(step.get("staticDuration", "0s").rstrip("s"))
+                if step.get("staticDuration")
+                else 0
+            )
             distance_m = step.get("distanceMeters", 0)
 
             transit_details = None
@@ -174,17 +188,19 @@ def _extract_transit_steps(route: dict, maps_service: GoogleMapsService) -> list
             if raw_td:
                 # 乗車駅
                 dep_stop_data = raw_td.get("stopDetails", {}).get("departureStop", {})
-                dep_stop = TransitStop(
-                    name=dep_stop_data.get("name", ""),
-                    location=None
-                ) if dep_stop_data.get("name") else None
+                dep_stop = (
+                    TransitStop(name=dep_stop_data.get("name", ""), location=None)
+                    if dep_stop_data.get("name")
+                    else None
+                )
 
                 # 降車駅
                 arr_stop_data = raw_td.get("stopDetails", {}).get("arrivalStop", {})
-                arr_stop = TransitStop(
-                    name=arr_stop_data.get("name", ""),
-                    location=None
-                ) if arr_stop_data.get("name") else None
+                arr_stop = (
+                    TransitStop(name=arr_stop_data.get("name", ""), location=None)
+                    if arr_stop_data.get("name")
+                    else None
+                )
 
                 # 路線情報
                 line_info = raw_td.get("transitLine", {})
@@ -201,12 +217,20 @@ def _extract_transit_steps(route: dict, maps_service: GoogleMapsService) -> list
                     num_stops=raw_td.get("stopCount"),
                 )
 
-            steps.append(TransitStep(
-                travel_mode=step_mode,
-                duration_text=maps_service.format_duration(duration_sec) if duration_sec else None,
-                distance_text=maps_service.format_distance(distance_m) if distance_m else None,
-                transit_details=transit_details,
-            ))
+            steps.append(
+                TransitStep(
+                    travel_mode=step_mode,
+                    duration_text=(
+                        maps_service.format_duration(duration_sec)
+                        if duration_sec
+                        else None
+                    ),
+                    distance_text=(
+                        maps_service.format_distance(distance_m) if distance_m else None
+                    ),
+                    transit_details=transit_details,
+                )
+            )
     return steps
 
 
@@ -235,5 +259,5 @@ async def health_check():
     return {
         "status": "ok",
         "service": "Google Directions API Demo",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }

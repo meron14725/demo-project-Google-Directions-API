@@ -1,8 +1,9 @@
 """
 Google Maps API統合サービス
 """
+
 import httpx
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 from datetime import datetime, timezone
 from app.config import settings
 import logging
@@ -15,7 +16,9 @@ class GoogleMapsService:
 
     def __init__(self):
         self.api_key = settings.GOOGLE_MAPS_API_KEY
-        self.routes_api_url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+        self.routes_api_url = (
+            "https://routes.googleapis.com/directions/v2:computeRoutes"
+        )
         self.geocoding_api_url = "https://maps.googleapis.com/maps/api/geocode/json"
 
     async def geocode_address(self, address: str) -> Tuple[float, float]:
@@ -31,10 +34,7 @@ class GoogleMapsService:
         Raises:
             ValueError: ジオコーディングに失敗した場合
         """
-        params = {
-            "address": address,
-            "key": self.api_key
-        }
+        params = {"address": address, "key": self.api_key}
 
         async with httpx.AsyncClient() as client:
             response = await client.get(self.geocoding_api_url, params=params)
@@ -54,7 +54,7 @@ class GoogleMapsService:
         travel_mode: str = "DRIVE",
         compute_alternative_routes: bool = False,
         departure_time: Optional[str] = None,
-        transit_preferences: Optional[Dict] = None
+        transit_preferences: Optional[Dict] = None,
     ) -> Dict:
         """
         Routes APIを使用して経路を計算
@@ -87,39 +87,33 @@ class GoogleMapsService:
             "routes.legs",
         ]
         if travel_mode == "TRANSIT":
-            field_mask_parts.extend([
-                "routes.legs.steps.transitDetails",
-                "routes.legs.steps.travelMode",
-                "routes.travelAdvisory.transitFare",
-            ])
+            field_mask_parts.extend(
+                [
+                    "routes.legs.steps.transitDetails",
+                    "routes.legs.steps.travelMode",
+                    "routes.travelAdvisory.transitFare",
+                ]
+            )
 
         # Routes APIリクエストヘッダー
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": ",".join(field_mask_parts)
+            "X-Goog-FieldMask": ",".join(field_mask_parts),
         }
 
         # リクエストボディ
         payload = {
             "origin": {
                 "location": {
-                    "latLng": {
-                        "latitude": origin_lat,
-                        "longitude": origin_lng
-                    }
+                    "latLng": {"latitude": origin_lat, "longitude": origin_lng}
                 }
             },
             "destination": {
-                "location": {
-                    "latLng": {
-                        "latitude": dest_lat,
-                        "longitude": dest_lng
-                    }
-                }
+                "location": {"latLng": {"latitude": dest_lat, "longitude": dest_lng}}
             },
             "travelMode": travel_mode,
-            "computeAlternativeRoutes": compute_alternative_routes
+            "computeAlternativeRoutes": compute_alternative_routes,
         }
 
         # TRANSITモード固有の設定
@@ -144,9 +138,7 @@ class GoogleMapsService:
                 logger.info(f"Routes API request headers: {headers}")
 
                 response = await client.post(
-                    self.routes_api_url,
-                    json=payload,
-                    headers=headers
+                    self.routes_api_url, json=payload, headers=headers
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -157,7 +149,9 @@ class GoogleMapsService:
 
                 return result
             except httpx.HTTPStatusError as e:
-                logger.error(f"Routes API error: {e.response.status_code} - {e.response.text}")
+                logger.error(
+                    f"Routes API error: {e.response.status_code} - {e.response.text}"
+                )
                 raise
 
     def format_duration(self, duration_seconds: int) -> str:

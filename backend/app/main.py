@@ -1,6 +1,7 @@
 """
 FastAPIメインアプリケーション
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.directions import router as directions_router
@@ -9,8 +10,7 @@ import logging
 
 # ロギング設定
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ app = FastAPI(
     description="執事アプリ技術検証プロジェクト - Google Routes APIを使用した経路検索デモ",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
 
 # CORSミドルウェア設定
@@ -49,7 +49,7 @@ async def root():
         "message": "Google Directions API Demo - 執事アプリ技術検証プロジェクト",
         "docs": "/docs",
         "health": "/api/v1/health",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
 
 
@@ -68,9 +68,10 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host=settings.BACKEND_HOST,
         port=settings.BACKEND_PORT,
-        reload=True
+        reload=True,
     )

@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     # Google Maps API設定
     GOOGLE_MAPS_API_KEY: str
 
+    # 駅すぱあと API設定
+    # 日本国内のTRANSIT検索に使用
+    # APIキー取得: https://docs.ekispert.com/
+    EKISPERT_API_KEY: str = ""
+
     # サーバー設定
     BACKEND_HOST: str = "0.0.0.0"
     BACKEND_PORT: int = 8000

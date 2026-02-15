@@ -80,24 +80,46 @@ class GoogleMapsService:
             raise
 
         # Field Maskの構築（TRANSITモードでは追加フィールドを含める）
-        field_mask_parts = [
-            "routes.distanceMeters",
-            "routes.duration",
-            "routes.polyline.encodedPolyline",
-            "routes.legs",
-        ]
+        # 公式ドキュメントに基づく正しいField Mask
         if travel_mode == "TRANSIT":
-            field_mask_parts.extend([
+            field_mask_parts = [
+                "routes.duration",
+                "routes.distanceMeters",
+                "routes.polyline.encodedPolyline",
+                "routes.legs.duration",
+                "routes.legs.distanceMeters",
+                "routes.legs.startLocation.latLng",
+                "routes.legs.endLocation.latLng",
                 "routes.legs.steps.transitDetails",
                 "routes.legs.steps.travelMode",
+                "routes.legs.steps.staticDuration",
+                "routes.legs.steps.distanceMeters",
                 "routes.travelAdvisory.transitFare",
-            ])
+                "routes.localizedValues",
+            ]
+        else:
+            field_mask_parts = [
+                "routes.distanceMeters",
+                "routes.duration",
+                "routes.polyline.encodedPolyline",
+                "routes.legs.distanceMeters",
+                "routes.legs.duration",
+                "routes.legs.startLocation.latLng",
+                "routes.legs.endLocation.latLng",
+            ]
 
         # Routes APIリクエストヘッダー
+        # デバッグ用：TRANSITモードでワイルドカードを使用してすべてのフィールドを取得
+        if travel_mode == "TRANSIT":
+            field_mask = "*"
+            print(f"\n⚠️  WARNING: Using wildcard '*' for TRANSIT mode debugging")
+        else:
+            field_mask = ",".join(field_mask_parts)
+
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": ",".join(field_mask_parts)
+            "X-Goog-FieldMask": field_mask
         }
 
         # リクエストボディ
@@ -142,6 +164,9 @@ class GoogleMapsService:
             try:
                 logger.info(f"Routes API request payload: {payload}")
                 logger.info(f"Routes API request headers: {headers}")
+                print(f"\n=== Routes API Request ===")
+                print(f"Payload: {payload}")
+                print(f"Headers: {headers}")
 
                 response = await client.post(
                     self.routes_api_url,
@@ -154,6 +179,10 @@ class GoogleMapsService:
                 logger.info(f"Routes API response status: {response.status_code}")
                 logger.info(f"Routes API response keys: {list(result.keys())}")
                 logger.info(f"Routes API response body: {result}")
+                print(f"\n=== Routes API Response ===")
+                print(f"Status: {response.status_code}")
+                print(f"Result keys: {list(result.keys())}")
+                print(f"Result: {result}")
 
                 return result
             except httpx.HTTPStatusError as e:
@@ -193,3 +222,36 @@ class GoogleMapsService:
             return f"{km:.1f} km"
         else:
             return f"{distance_meters} m"
+
+
+def is_japan_region(origin_lat: float, origin_lng: float,
+                    dest_lat: float, dest_lng: float) -> bool:
+    """
+    座標が日本国内かどうかを判定
+
+    日本の座標範囲（本土および主要離島を含む）:
+    - 緯度: 24°N ~ 46°N （沖縄から北海道まで）
+    - 経度: 123°E ~ 154°E （西端から東端まで）
+
+    Args:
+        origin_lat: 出発地の緯度
+        origin_lng: 出発地の経度
+        dest_lat: 目的地の緯度
+        dest_lng: 目的地の経度
+
+    Returns:
+        bool: 両地点が日本国内の場合True、それ以外False
+    """
+    japan_lat_range = (24.0, 46.0)
+    japan_lng_range = (123.0, 154.0)
+
+    origin_in_japan = (
+        japan_lat_range[0] <= origin_lat <= japan_lat_range[1] and
+        japan_lng_range[0] <= origin_lng <= japan_lng_range[1]
+    )
+    dest_in_japan = (
+        japan_lat_range[0] <= dest_lat <= japan_lat_range[1] and
+        japan_lng_range[0] <= dest_lng <= japan_lng_range[1]
+    )
+
+    return origin_in_japan and dest_in_japan
